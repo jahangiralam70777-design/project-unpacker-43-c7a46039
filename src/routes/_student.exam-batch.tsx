@@ -5,7 +5,6 @@ import { useExamBatchStudentNav } from "@/components/exam-batch/access-gate";
 import { StudentExamBatchBanPage } from "@/components/exam-batch/student-ban-page";
 import {
   listMyExamBatchEnrollments,
-  getExamBatchAccess,
 } from "@/lib/exam-batch/student-enrollment.functions";
 import { getExamBatchAccessState } from "@/lib/exam-batch/student-attendance.functions";
 import { getExamBatchPublicSettings } from "@/lib/exam-batch/public-settings.functions";
