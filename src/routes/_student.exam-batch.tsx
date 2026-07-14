@@ -82,6 +82,25 @@ function StudentExamBatchLayout() {
   return <ExamBatchLayout nav={nav} />;
 }
 
+// Never render nothing. Any time TanStack Router enters the pending state
+// for this route — first load, hard refresh, direct URL entry, or a
+// realtime `router.invalidate()` where no previous match is on screen —
+// this skeleton renders instead of a blank page. Combined with the
+// `errorComponent` below and `pendingMs: 0` this guarantees the Exam
+// Batch subtree ALWAYS has something on screen while `beforeLoad`
+// resolves, so admin-driven enrollment status transitions can never
+// produce a white screen.
+function ExamBatchLayoutPending() {
+  return (
+    <ExamBatchLayout nav={[]}>
+      <div className="mx-auto flex min-h-[40vh] w-full max-w-lg flex-col items-center justify-center gap-3 rounded-3xl border border-border/60 bg-background/60 p-6 text-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+        <p className="text-sm text-muted-foreground">Loading your Exam Batch workspace…</p>
+      </div>
+    </ExamBatchLayout>
+  );
+}
+
 export const Route = createFileRoute("/_student/exam-batch")({
   // Keep the previous match on-screen while `router.invalidate()` re-runs
   // this `beforeLoad`. We want NO visible pending flash for realtime
@@ -96,6 +115,10 @@ export const Route = createFileRoute("/_student/exam-batch")({
   // genuine failures.
   pendingMs: 30_000,
   pendingMinMs: 0,
+  // Belt and suspenders: even if pendingMs elapses (very slow network,
+  // socket wake, transient RPC failure) TanStack Router renders this
+  // instead of leaving the DOM empty.
+  pendingComponent: ExamBatchLayoutPending,
   // Runs BEFORE any child route mounts. Because `_student` is `ssr:false`,
   // this runs client-side with access to the authenticated Supabase
   // session. We throw `redirect()` here — TanStack Router applies the
