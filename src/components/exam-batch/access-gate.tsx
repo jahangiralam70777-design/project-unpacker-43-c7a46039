@@ -90,8 +90,6 @@ export function useExamBatchAccess() {
     placeholderData: keepPreviousData,
   });
 
-  const canAccessDashboard = accessQuery.data?.canAccessDashboard ?? false;
-  const studentId = accessQuery.data?.studentId ?? null;
   // Prefer the enrollment row's status (source of truth from the
   // enrollments table) so admin-driven transitions
   // (approved → pending / rejected / banned) reflect immediately, even
@@ -99,6 +97,9 @@ export function useExamBatchAccess() {
   // remains a fallback for the initial load before enrollments arrive.
   const enrollmentStatus =
     currentEnrollment?.status ?? accessQuery.data?.status ?? null;
+  const studentId = currentEnrollment?.student_id ?? accessQuery.data?.studentId ?? null;
+  const canAccessDashboard =
+    enrollmentStatus === "approved" && typeof studentId === "number";
 
 
   // Only report `isLoading` on the very first fetch. Background refetches

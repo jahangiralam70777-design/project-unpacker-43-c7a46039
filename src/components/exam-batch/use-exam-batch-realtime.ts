@@ -175,6 +175,10 @@ let mountCount = 0;
 let sharedChannel: ReturnType<typeof supabase.channel> | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 const pending = new Set<string>();
+let routerInvalidatePromise: Promise<unknown> | null = null;
+let routerInvalidateQueued = false;
+let accessResyncPromise: Promise<unknown> | null = null;
+let accessResyncQueued = false;
 
 // Tab-visibility bookkeeping: only trigger the expensive access re-sync
 // (which calls `router.invalidate()` and re-runs `beforeLoad`) when the
@@ -193,13 +197,58 @@ function safeInvalidateRouter(router: AnyRouter) {
   // its error boundary. Swallow the failure — the next realtime event,
   // online event, or user navigation will retry.
   try {
-    const p = router.invalidate();
-    if (p && typeof (p as { catch?: unknown }).catch === "function") {
-      (p as Promise<unknown>).catch(() => {});
+    if (routerInvalidatePromise) {
+      routerInvalidateQueued = true;
+      return;
     }
+    const run = async (): Promise<void> => {
+      try {
+        await router.invalidate();
+      } catch {
+        /* noop */
+      } finally {
+        routerInvalidatePromise = null;
+        if (routerInvalidateQueued) {
+          routerInvalidateQueued = false;
+          safeInvalidateRouter(router);
+        }
+      }
+    };
+    routerInvalidatePromise = run();
   } catch {
     /* noop */
   }
+}
+
+function queueAccessResync(qc: QueryClient, router: AnyRouter) {
+  if (accessResyncPromise) {
+    accessResyncQueued = true;
+    return;
+  }
+  const run = async (): Promise<void> => {
+    try {
+      const keys: unknown[][] = [
+        ["exam-batch", "public-settings"],
+        ["exam-batch", "student", "sessions"],
+        ["exam-batch", "student", "my-enrollments"],
+        ["exam-batch", "student", "access"],
+        ["exam-batch", "student", "enrolled-subjects"],
+      ];
+      await Promise.allSettled(
+        keys.map((queryKey) =>
+          qc.invalidateQueries({ queryKey, refetchType: "active" }),
+        ),
+      );
+    } finally {
+      safeInvalidateRouter(router);
+      accessResyncPromise = null;
+      if (accessResyncQueued) {
+        accessResyncQueued = false;
+        queueAccessResync(qc, router);
+      }
+    }
+  };
+  accessResyncPromise = run();
 }
 
 function flush(qc: QueryClient, router: AnyRouter) {
@@ -226,7 +275,7 @@ function flush(qc: QueryClient, router: AnyRouter) {
   // Router keeps the previous route mounted during this transition, so
   // there is no unmount and no blank screen.
   if (shouldInvalidateRouter) {
-    safeInvalidateRouter(router);
+    queueAccessResync(qc, router);
   }
 }
 
@@ -247,7 +296,7 @@ function resyncAccess(qc: QueryClient, router: AnyRouter) {
       void qc.invalidateQueries({ queryKey: key, refetchType: "active" });
     }
   }
-  safeInvalidateRouter(router);
+  queueAccessResync(qc, router);
 }
 
 /**
@@ -373,6 +422,17 @@ export function useExamBatchRealtime() {
       invalidateAll(qc);
       resyncAccess(qc, router);
     };
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted || document.visibilityState === "visible") {
+        hiddenSinceMs = Date.now() - MIN_HIDDEN_MS_FOR_RESYNC;
+        invalidateAll(qc);
+        resyncAccess(qc, router);
+      }
+    };
+    const handleFocus = () => {
+      if (document.visibilityState !== "visible") return;
+      scheduleVisibilityResync();
+    };
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         if (hiddenSinceMs == null) hiddenSinceMs = Date.now();
@@ -387,6 +447,8 @@ export function useExamBatchRealtime() {
       hiddenSinceMs = Date.now();
     }
     window.addEventListener("online", handleOnline);
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -413,6 +475,8 @@ export function useExamBatchRealtime() {
     return () => {
       cancelled = true;
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
       if (visibilityResyncTimer) {
         clearTimeout(visibilityResyncTimer);

@@ -51,6 +51,19 @@ function pickCurrentEnrollment(
   );
 }
 
+function accessFromEnrollment(row: ExamBatchEnrollmentRow | null) {
+  const approved = row?.status === "approved" && typeof row.student_id === "number";
+  return {
+    enrolled: !!row,
+    status: row?.status ?? null,
+    studentId: row?.student_id ?? null,
+    canAccessDashboard: approved,
+    canTakeExams: approved,
+    canViewLeaderboard: approved,
+    canViewProgress: approved,
+  };
+}
+
 function StudentExamBatchLayout() {
   const nav = useExamBatchStudentNav();
 
@@ -161,39 +174,35 @@ export const Route = createFileRoute("/_student/exam-batch")({
       return;
     }
 
-    // 2) Load the student's enrollments (cached; shared with
-    //    `useExamBatchAccess` via the same queryKey so no duplicate fetch).
-    // NOTE: we use `fetchQuery` (not `ensureQueryData`) for the
-    // enrollment + access queries because these drive the authoritative
-    // pending ↔ approved ↔ rejected redirect. `ensureQueryData` returns
-    // stale-but-cached data immediately; when Supabase Realtime marks
-    // these keys stale after an admin status change and the exam-batch
-    // realtime hook calls `router.invalidate()`, we MUST see fresh data
-    // this run so `beforeLoad` can redirect on the same tick. `fetchQuery`
-    // refetches when stale, still returns cache when fresh — no extra
-    // network cost during normal navigation.
+    // 2) Load the student's enrollments (shared with `useExamBatchAccess`).
+    // This row is the single authoritative state for route decisions:
+    // status + student_id live on the same database row, so deriving access
+    // from it prevents a split-query race where fresh enrollments + stale
+    // access cache disagree during admin-driven status changes.
     const enrollments = await safeFetch(
       ["exam-batch", "student", "my-enrollments"],
       () => listMyExamBatchEnrollments({ data: {} }),
-      15_000,
+      0,
     );
 
     const currentEnrollment = pickCurrentEnrollment(enrollments ?? []);
     const sessionId = currentEnrollment?.session_id ?? null;
 
-    // 3) Authoritative approval decision (status=approved + student_id set).
-    //    Only queried when we have a candidate session — otherwise the user
-    //    has no enrollment at all and must see the Session picker.
-    let canAccessDashboard = false;
-    let enrollmentStatus: string | null = currentEnrollment?.status ?? null;
+    // 3) Keep the access cache in lock-step with the enrollment row before
+    //    child components render. This removes invalid intermediate states
+    //    during simultaneous query invalidations on mobile resume/realtime.
+    const derivedAccess = accessFromEnrollment(currentEnrollment);
+    const canAccessDashboard = derivedAccess.canAccessDashboard;
+    const enrollmentStatus = derivedAccess.status;
     if (sessionId) {
-      const access = await safeFetch(
+      context.queryClient.setQueryData(
         ["exam-batch", "student", "access", sessionId],
-        () => getExamBatchAccess({ data: { sessionId } }),
-        15_000,
+        derivedAccess,
       );
-      canAccessDashboard = access?.canAccessDashboard ?? false;
-      enrollmentStatus = access?.status ?? enrollmentStatus;
+      void context.queryClient.invalidateQueries({
+        queryKey: ["exam-batch", "student", "access", sessionId],
+        refetchType: "active",
+      });
     }
 
     const inPostArea = POST_APPROVAL_PREFIXES.some((p) => here.startsWith(p));
