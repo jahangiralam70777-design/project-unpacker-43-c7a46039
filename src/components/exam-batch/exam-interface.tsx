@@ -16,6 +16,7 @@ import {
   BookOpen,
   Hash,
   Info,
+  LayoutGrid,
 } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
