@@ -426,18 +426,20 @@ export function useExamBatchRealtime() {
     };
 
     const handleOnline = () => {
-      // Coming back online genuinely means we may have missed events.
-      // Reset the hidden-timer so the next visibilitychange also
-      // triggers a resync even if the tab was foreground the whole time.
+      // Coming back online genuinely means we may have missed events, but
+      // on mobile `online` fires in bursts alongside `pageshow`, `focus`
+      // and `visibilitychange` during a bfcache restore. Funnel every
+      // lifecycle wakeup through the same debounced path so we perform
+      // ONE coordinated resync per resume instead of 3-4 concurrent
+      // `router.invalidate()` cascades that can blank the exam-batch
+      // subtree while `beforeLoad` reruns.
       hiddenSinceMs = Date.now() - MIN_HIDDEN_MS_FOR_RESYNC;
-      invalidateAll(qc, { skipAccess: true });
-      resyncAccess(qc, router);
+      scheduleVisibilityResync();
     };
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted || document.visibilityState === "visible") {
         hiddenSinceMs = Date.now() - MIN_HIDDEN_MS_FOR_RESYNC;
-        invalidateAll(qc, { skipAccess: true });
-        resyncAccess(qc, router);
+        scheduleVisibilityResync();
       }
     };
     const handleFocus = () => {
