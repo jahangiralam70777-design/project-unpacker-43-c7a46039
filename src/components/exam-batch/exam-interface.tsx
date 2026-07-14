@@ -4,7 +4,6 @@ import {
   Timer,
   ChevronLeft,
   ChevronRight,
-  Menu,
   X,
   CheckCircle2,
   Circle,
