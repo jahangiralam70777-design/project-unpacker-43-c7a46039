@@ -125,22 +125,17 @@ function ExamBatchLayoutPending() {
 }
 
 export const Route = createFileRoute("/_student/exam-batch")({
-  // Keep the previous match on-screen while `router.invalidate()` re-runs
-  // this `beforeLoad`. We want NO visible pending flash for realtime
-  // enrollment status changes, but we also cannot use
-  // `Number.MAX_SAFE_INTEGER` here: if `beforeLoad` errors (transient
-  // network on tab wake, offline momentarily, Supabase 5xx) the layout
-  // is trapped behind the pending state forever, and the user sees
-  // either a hung page or the router error boundary flash — the exact
-  // "errors appear and the page refreshes unexpectedly" symptom from
-  // Issue 2. A generous but finite value gives the transition time to
-  // resolve while still allowing the error boundary to render on
-  // genuine failures.
-  pendingMs: 30_000,
+  // Render the pending UI IMMEDIATELY (pendingMs: 0). Historical value
+  // of 30_000 meant that on mobile — where the initial load has no
+  // previous match to keep on screen, and where `router.invalidate()`
+  // after an enrollment status change re-runs `beforeLoad` before the
+  // previous match finishes a background refetch — the router
+  // rendered a blank pane for up to 30 seconds. That is the mobile
+  // "white screen on open" and "white screen after admin status
+  // change" symptom. With pendingMs: 0 the skeleton is always on
+  // screen while `beforeLoad` resolves.
+  pendingMs: 0,
   pendingMinMs: 0,
-  // Belt and suspenders: even if pendingMs elapses (very slow network,
-  // socket wake, transient RPC failure) TanStack Router renders this
-  // instead of leaving the DOM empty.
   pendingComponent: ExamBatchLayoutPending,
   // Runs BEFORE any child route mounts. Because `_student` is `ssr:false`,
   // this runs client-side with access to the authenticated Supabase
