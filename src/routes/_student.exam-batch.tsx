@@ -124,6 +124,7 @@ function ExamBatchLayoutPending() {
   );
 }
 
+export const Route = createFileRoute("/_student/exam-batch")({
   // Render the pending UI IMMEDIATELY (pendingMs: 0). Historical value
   // of 30_000 meant that on mobile — where the initial load has no
   // previous match to keep on screen, and where `router.invalidate()`
@@ -132,15 +133,10 @@ function ExamBatchLayoutPending() {
   // rendered a blank pane for up to 30 seconds. That is the mobile
   // "white screen on open" and "white screen after admin status
   // change" symptom. With pendingMs: 0 the skeleton is always on
-  // screen while `beforeLoad` resolves; the previous match still
-  // shows during transitions with `pendingMinMs: 0` because TanStack
-  // Router prefers the resolved match when it lands within a single
-  // frame. On the initial hard load / bfcache restore / cold navigate
-  // this guarantees a mounted layout instead of a blank body.
+  // screen while `beforeLoad` resolves.
   pendingMs: 0,
   pendingMinMs: 0,
   pendingComponent: ExamBatchLayoutPending,
-export const Route = createFileRoute("/_student/exam-batch")({
   // Runs BEFORE any child route mounts. Because `_student` is `ssr:false`,
   // this runs client-side with access to the authenticated Supabase
   // session. We throw `redirect()` here — TanStack Router applies the
