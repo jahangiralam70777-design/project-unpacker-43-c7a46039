@@ -218,11 +218,7 @@ export const Route = createFileRoute("/_student/exam-batch")({
 
     if (currentEnrollment && enrollmentStatus === "pending") {
       // Enrolled but awaiting admin approval.
-      if (
-        inPostArea ||
-        here === "/exam-batch/subjects" ||
-        here === "/exam-batch/enrollment"
-      ) {
+      if (here !== "/exam-batch/pending") {
         throw redirect({ to: "/exam-batch/pending", replace: true });
       }
       return;
