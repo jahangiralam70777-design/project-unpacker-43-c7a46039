@@ -4,7 +4,6 @@ import {
   Timer,
   ChevronLeft,
   ChevronRight,
-  Menu,
   X,
   CheckCircle2,
   Circle,
@@ -16,6 +15,7 @@ import {
   BookOpen,
   Hash,
   Info,
+  LayoutGrid,
 } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -424,7 +424,7 @@ export function ExamInterface() {
   }
 
   return (
-    <div className="pb-28 lg:pb-6">
+    <div className="pb-40 lg:pb-6">
       <ExamHeader
         title={meta?.title ?? "Exam"}
         subtitle={meta?.subjectName ?? meta?.subtitle ?? null}
@@ -516,43 +516,51 @@ export function ExamInterface() {
         />
       </div>
 
-      {/* Mobile sticky bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/85 p-3 backdrop-blur-xl lg:hidden">
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
+      {/* Mobile sticky bottom bar — palette is a full-width row of its own
+          so it is ALWAYS visible on every screen size, no matter how many
+          nav buttons render below it. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto flex max-w-3xl flex-col gap-2">
           <button
-            onClick={() => loadIndex(current - 1)}
-            disabled={current === 0 || questionLoading}
-            className={cn(
-              "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-input bg-background/60 text-sm font-semibold disabled:opacity-40",
-            )}
-          >
-            <ChevronLeft className="h-4 w-4" /> Prev
-          </button>
-          <button
+            type="button"
             onClick={() => setPaletteOpen(true)}
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl bg-cta-gradient text-white shadow-glow"
-            aria-label="Question palette"
+            aria-label={`Open question palette · ${answeredCount} of ${totalQuestions} answered`}
+            className="relative inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cta-gradient px-3 text-sm font-semibold text-white shadow-glow"
           >
-            <Menu className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-              {answeredCount}
+            <LayoutGrid className="h-4 w-4" />
+            <span>Question Palette</span>
+            <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold tabular-nums">
+              {answeredCount}/{totalQuestions}
             </span>
           </button>
-          <button
-            onClick={() => setConfirmOpen(true)}
-            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta-gradient text-sm font-semibold text-white shadow-glow"
-          >
-            <Send className="h-4 w-4" /> Submit
-          </button>
-          {current < totalQuestions - 1 && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => loadIndex(current + 1)}
-              disabled={questionLoading}
+              onClick={() => loadIndex(current - 1)}
+              disabled={current === 0 || questionLoading}
+              className={cn(
+                "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-input bg-background/60 text-sm font-semibold disabled:opacity-40",
+              )}
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            <button
+              onClick={() => setConfirmOpen(true)}
               className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-primary/40 text-sm font-semibold text-primary"
             >
-              Next <ChevronRight className="h-4 w-4" />
+              <Send className="h-4 w-4" /> Submit
             </button>
-          )}
+            {current < totalQuestions - 1 && (
+              <button
+                onClick={() => loadIndex(current + 1)}
+                disabled={questionLoading}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-cta-gradient text-sm font-semibold text-white shadow-glow"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -634,7 +642,7 @@ function ExamHeader({
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-input bg-background/60 text-foreground/80 transition-colors hover:bg-muted lg:hidden"
               aria-label="Open question palette"
             >
-              <Menu className="h-4 w-4" />
+              <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
         </div>
